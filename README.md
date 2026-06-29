@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🐼 Mandarin Tutor
 
-## Getting Started
+An AI Mandarin Chinese tutor for **kids and adults**. Built with Next.js (App Router) + Tailwind.
 
-First, run the development server:
+## Features
+
+- **AI chat tutor** with a kids/adults mode toggle that adapts tone, vocabulary, and UI.
+- **Lessons** (greetings, numbers, family, food, colors) + **free conversation** mode.
+- Every Chinese reply shows **Hanzi + Pinyin + English**, plus a teaching note.
+- **Audio** for any phrase via the browser's speech synthesis (zh-CN) — no key needed.
+- **Spaced-repetition review** (Leitner boxes) so learners revisit saved vocab.
+- **Works with zero setup**: without an API key it runs an *offline practice mode* using
+  built-in lessons. Add an `OPENAI_API_KEY` to unlock full conversational replies.
+
+## Getting started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Enable full AI replies (optional)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+cp .env.example .env.local
+# then set OPENAI_API_KEY=sk-...
+```
 
-## Learn More
+| Variable         | Default       | Purpose                                  |
+| ---------------- | ------------- | ---------------------------------------- |
+| `OPENAI_API_KEY` | _(unset)_     | Enables OpenAI-powered conversation      |
+| `OPENAI_MODEL`   | `gpt-4o-mini` | Chat model used for replies              |
 
-To learn more about Next.js, take a look at the following resources:
+## Architecture
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+src/
+  app/
+    api/chat/route.ts   # POST: { messages, audience, mode, lessonId } -> structured TutorReply
+    page.tsx            # renders <ChatTutor/>
+  components/
+    ChatTutor.tsx       # main UI: audience/mode toggles, lesson picker, chat
+    TutorMessage.tsx    # Hanzi + Pinyin + English card, audio, save-to-review
+    ReviewPanel.tsx     # spaced-repetition flashcards
+  lib/
+    tutor.ts            # LLM call + offline mock fallback + pinyin helpers
+    lessons.ts          # lesson/vocab data
+    srs.ts              # localStorage Leitner spaced-repetition store
+    speak.ts            # browser TTS (swap for server TTS later)
+    types.ts
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Roadmap / how to extend
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Voice input + tone feedback** (the eventual killer feature): add a `/api/transcribe`
+  route using Whisper, capture mic audio in the client, and have the tutor score pronunciation.
+- **Accounts + progress**: replace the `localStorage` SRS store (`src/lib/srs.ts`) with a
+  Postgres-backed API; the `SrsCard` shape is already defined.
+- **Server-side TTS**: swap `src/lib/speak.ts` for OpenAI/Azure/ElevenLabs for higher-quality,
+  consistent Mandarin audio.
+- **Mobile app**: the API (`/api/chat`) is UI-agnostic and can back a React Native client.
