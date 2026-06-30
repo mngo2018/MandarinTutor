@@ -34,6 +34,30 @@ export interface TutorReply {
   expecting?: VocabItem;
 }
 
+/** Tone/pronunciation assessment for a single syllable. */
+export interface ToneCheck {
+  /** The Chinese character. */
+  char: string;
+  /** Expected pinyin with tone mark. */
+  pinyin: string;
+  /** Whether the learner pronounced it acceptably. */
+  ok: boolean;
+  /** Short note when it needs work (e.g. tone slipped). */
+  note?: string;
+}
+
+/** Result of listening to a learner's spoken attempt at a target phrase. */
+export interface Pronunciation {
+  /** What the learner actually said (as heard). */
+  transcript: string;
+  /** Overall assessment. */
+  rating: "great" | "good" | "needs_work";
+  /** Per-syllable tone breakdown for the target phrase. */
+  tones: ToneCheck[];
+  /** One concrete tip for improvement. */
+  tip?: string;
+}
+
 export interface ChatRequest {
   messages: ChatMessage[];
   audience: Audience;
