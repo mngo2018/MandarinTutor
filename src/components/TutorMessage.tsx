@@ -9,10 +9,16 @@ export function TutorMessage({
   reply,
   kid,
   autoPlay = false,
+  expectingActive = false,
+  recording = false,
+  onSpeak,
 }: {
   reply: TutorReply;
   kid: boolean;
   autoPlay?: boolean;
+  expectingActive?: boolean;
+  recording?: boolean;
+  onSpeak?: () => void;
 }) {
   const [saved, setSaved] = useState(false);
 
@@ -48,6 +54,36 @@ export function TutorMessage({
           </button>
         )}
       </div>
+
+      {reply.expecting && (
+        <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">
+            🎤 Your turn — say:
+          </p>
+          <div className="mt-1 flex items-center justify-between gap-3">
+            <div>
+              <span className={`font-semibold ${kid ? "text-2xl" : "text-xl"}`}>
+                {reply.expecting.hanzi}
+              </span>{" "}
+              <span className="text-rose-600">{reply.expecting.pinyin}</span>
+              <span className="ml-2 text-sm text-slate-500">
+                “{reply.expecting.english}”
+              </span>
+            </div>
+            {expectingActive && onSpeak && (
+              <button
+                type="button"
+                onClick={onSpeak}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-medium text-white transition ${
+                  recording ? "animate-pulse bg-red-600" : "bg-rose-600 hover:bg-rose-700"
+                }`}
+              >
+                {recording ? "⏹ Stop" : "🎤 Say it"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {reply.notes && (
         <p className="mt-3 rounded-lg bg-black/5 px-3 py-2 text-sm text-slate-700">
