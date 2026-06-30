@@ -66,11 +66,18 @@ export function TutorMessage({
 }) {
   const [saved, setSaved] = useState(false);
   const spoken = reply.speech?.trim() || reply.hanzi;
+  const target = reply.expecting?.hanzi;
 
   useEffect(() => {
     if (autoPlay) speak(spoken);
     else prefetchSpeech(spoken);
   }, [spoken, autoPlay]);
+
+  // Warm the pure-Mandarin target so its 🔊 plays instantly, even when the
+  // coaching line above is bilingual.
+  useEffect(() => {
+    if (target) prefetchSpeech(target);
+  }, [target]);
 
   return (
     <div
@@ -115,17 +122,29 @@ export function TutorMessage({
                 “{reply.expecting.english}”
               </span>
             </div>
-            {expectingActive && onSpeak && (
-              <button
-                type="button"
-                onClick={onSpeak}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-medium text-white transition ${
-                  recording ? "animate-pulse bg-red-600" : "bg-rose-600 hover:bg-rose-700"
-                }`}
-              >
-                {recording ? "⏹ Stop" : "🎤 Say it"}
-              </button>
-            )}
+            <div className="flex shrink-0 items-center gap-2">
+              {canSpeak() && target && (
+                <button
+                  type="button"
+                  aria-label="Hear it in Mandarin"
+                  onClick={() => speak(target)}
+                  className="rounded-full bg-white p-2 text-lg shadow-sm transition hover:bg-rose-100"
+                >
+                  🔊
+                </button>
+              )}
+              {expectingActive && onSpeak && (
+                <button
+                  type="button"
+                  onClick={onSpeak}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium text-white transition ${
+                    recording ? "animate-pulse bg-red-600" : "bg-rose-600 hover:bg-rose-700"
+                  }`}
+                >
+                  {recording ? "⏹ Stop" : "🎤 Say it"}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
