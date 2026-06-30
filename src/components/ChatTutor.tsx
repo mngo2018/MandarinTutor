@@ -13,7 +13,7 @@ import { ReviewPanel } from "./ReviewPanel";
 
 type DisplayMsg =
   | { role: "user"; content: string }
-  | { role: "assistant"; reply: TutorReply };
+  | { role: "assistant"; reply: TutorReply; autoPlay?: boolean };
 
 export function ChatTutor() {
   const [audience, setAudience] = useState<Audience>("adults");
@@ -24,9 +24,19 @@ export function ChatTutor() {
   const [loading, setLoading] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [micError, setMicError] = useState<string | null>(null);
 
   const kid = audience === "kids";
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<DisplayMsg[]>(messages);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -35,6 +45,7 @@ export function ChatTutor() {
   async function send(
     history: DisplayMsg[],
     ctx?: { mode?: Mode; lessonId?: string | undefined },
+    opts?: { autoPlay?: boolean },
   ) {
     const apiMessages: ChatMessage[] = history.map((m) =>
       m.role === "user"
@@ -56,7 +67,10 @@ export function ChatTutor() {
       });
       const data = await res.json();
       setOffline(Boolean(data.mock));
-      setMessages((prev) => [...prev, { role: "assistant", reply: data.reply }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", reply: data.reply, autoPlay: opts?.autoPlay },
+      ]);
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -83,6 +97,66 @@ export function ChatTutor() {
     setMessages(next);
     setInput("");
     void send(next);
+  }
+
+  async function toggleMic() {
+    if (recording) {
+      recorderRef.current?.stop();
+      return;
+    }
+    setMicError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      chunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size) chunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        setRecording(false);
+        const blob = new Blob(chunksRef.current, {
+          type: recorder.mimeType || "audio/webm",
+        });
+        void transcribeAndSend(blob);
+      };
+      recorderRef.current = recorder;
+      recorder.start();
+      setRecording(true);
+    } catch {
+      setMicError("Microphone access was blocked. Allow it in your browser to speak.");
+    }
+  }
+
+  async function transcribeAndSend(blob: Blob) {
+    if (!blob.size || loading) return;
+    setTranscribing(true);
+    try {
+      const ext = blob.type.includes("mp4")
+        ? "mp4"
+        : blob.type.includes("ogg")
+          ? "ogg"
+          : "webm";
+      const form = new FormData();
+      form.append("audio", blob, `speech.${ext}`);
+      const res = await fetch("/api/transcribe", { method: "POST", body: form });
+      const data = await res.json();
+      const text = (data.text ?? "").trim();
+      if (!text) {
+        setMicError("Didn't catch that — try speaking again.");
+        return;
+      }
+      const next: DisplayMsg[] = [
+        ...messagesRef.current,
+        { role: "user", content: text },
+      ];
+      setMessages(next);
+      void send(next, undefined, { autoPlay: true });
+    } catch {
+      setMicError("Transcription failed — please try again.");
+    } finally {
+      setTranscribing(false);
+    }
   }
 
   function startLesson(id: string) {
@@ -205,7 +279,12 @@ export function ChatTutor() {
               {m.content}
             </div>
           ) : (
-            <TutorMessage key={i} reply={m.reply} kid={kid} />
+            <TutorMessage
+              key={i}
+              reply={m.reply}
+              kid={kid}
+              autoPlay={Boolean(m.autoPlay)}
+            />
           ),
         )}
         {loading && (
@@ -226,20 +305,48 @@ export function ChatTutor() {
         onSubmit={handleSubmit}
         className="border-t border-slate-200 bg-white p-3"
       >
-        <div className="mx-auto flex max-w-3xl gap-2">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={kid ? "Type or say hi! 你好" : "Type in English or 中文…"}
-            className="flex-1 rounded-full border border-slate-300 px-4 py-2 outline-none focus:border-rose-400"
-          />
-          <button
-            type="submit"
-            disabled={loading || !input.trim()}
-            className="rounded-full bg-rose-600 px-5 py-2 font-medium text-white disabled:opacity-40"
-          >
-            Send
-          </button>
+        <div className="mx-auto w-full max-w-3xl">
+          {micError && (
+            <p className="mb-2 text-center text-xs text-rose-600">{micError}</p>
+          )}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={toggleMic}
+              disabled={transcribing || loading}
+              aria-label={recording ? "Stop recording" : "Speak"}
+              title={recording ? "Stop recording" : "Speak Mandarin"}
+              className={`shrink-0 rounded-full px-4 py-2 text-lg font-medium transition disabled:opacity-40 ${
+                recording
+                  ? "animate-pulse bg-red-600 text-white"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              }`}
+            >
+              {recording ? "⏹" : transcribing ? "…" : "🎤"}
+            </button>
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={
+                recording
+                  ? "Listening… tap ⏹ when done"
+                  : transcribing
+                    ? "Transcribing…"
+                    : kid
+                      ? "Type or tap 🎤 to speak! 你好"
+                      : "Type, or tap 🎤 to speak…"
+              }
+              disabled={recording || transcribing}
+              className="flex-1 rounded-full border border-slate-300 px-4 py-2 outline-none focus:border-rose-400 disabled:bg-slate-50"
+            />
+            <button
+              type="submit"
+              disabled={loading || !input.trim()}
+              className="rounded-full bg-rose-600 px-5 py-2 font-medium text-white disabled:opacity-40"
+            >
+              Send
+            </button>
+          </div>
         </div>
       </form>
 

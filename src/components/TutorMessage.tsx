@@ -8,15 +8,18 @@ import type { TutorReply } from "@/lib/types";
 export function TutorMessage({
   reply,
   kid,
+  autoPlay = false,
 }: {
   reply: TutorReply;
   kid: boolean;
+  autoPlay?: boolean;
 }) {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    prefetchSpeech(reply.hanzi);
-  }, [reply.hanzi]);
+    if (autoPlay) speak(reply.hanzi);
+    else prefetchSpeech(reply.hanzi);
+  }, [reply.hanzi, autoPlay]);
 
   return (
     <div
