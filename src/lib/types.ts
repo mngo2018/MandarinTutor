@@ -27,6 +27,11 @@ export interface TutorReply {
   notes?: string;
   /** Key vocabulary worth saving for review. */
   vocab: VocabItem[];
+  /**
+   * In guided lessons, the phrase the learner is now asked to say aloud.
+   * When set, the UI shows a "your turn to speak" cue.
+   */
+  expecting?: VocabItem;
 }
 
 export interface ChatRequest {

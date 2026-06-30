@@ -40,20 +40,27 @@ function buildSystemPrompt(
 
   const focus =
     mode === "lesson" && lesson
-      ? `The current lesson is "${lesson.title}". Focus on this vocabulary: ${lesson.vocab
-          .map((v) => `${v.hanzi} (${v.pinyin}) = ${v.english}`)
-          .join("; ")}. Introduce items gradually and quiz the learner.`
-      : "This is free conversation. Keep Chinese at a beginner level and gently correct mistakes.";
+      ? [
+          `You are leading a guided lesson titled "${lesson.title}". Take charge and drive it step by step.`,
+          `Lesson vocabulary (teach these in order): ${lesson.vocab
+            .map((v) => `${v.hanzi} (${v.pinyin}) = ${v.english}`)
+            .join("; ")}.`,
+          "Teach ONE item per turn. For each item: briefly introduce it (meaning + when to use it), then ask the learner to say it out loud, and set the `expecting` field to exactly that item so the app can prompt them to speak.",
+          "On the learner's next turn they will send a transcription of what they said. Evaluate it: if it matches the expected phrase, praise them and move on to the NEXT item (introduce it and set `expecting` to the new item). If it is wrong or missing, gently correct, model it again, and set `expecting` to the SAME item to retry.",
+          "Keep each turn short — one item at a time. After all items have been practiced, give a short recap and a sentence of encouragement, and do not set `expecting`.",
+        ].join(" ")
+      : "This is free conversation. Keep Chinese at a beginner level and gently correct mistakes. Only set `expecting` if you explicitly invite the learner to repeat a specific phrase.";
 
   return [
-    "You are a friendly Mandarin Chinese tutor.",
+    "You are a friendly, proactive Mandarin Chinese tutor who leads the session.",
     tone,
     focus,
     "Always reply with simplified Chinese plus pinyin and an English translation.",
     "Respond ONLY with a JSON object matching this TypeScript type:",
-    "{ hanzi: string; pinyin: string; english: string; notes?: string; vocab: { hanzi: string; pinyin: string; english: string }[] }",
-    "`hanzi` is your spoken reply in Chinese. `pinyin` is its pinyin with tone marks. `english` is the translation.",
+    "{ hanzi: string; pinyin: string; english: string; notes?: string; vocab: { hanzi: string; pinyin: string; english: string }[]; expecting?: { hanzi: string; pinyin: string; english: string } }",
+    "`hanzi` is your spoken reply in Chinese (include your instruction to the learner). `pinyin` is its pinyin with tone marks. `english` is the translation.",
     "`notes` is a short tip or encouragement in English. `vocab` lists the key words from your reply worth reviewing.",
+    "`expecting` is the single phrase you are asking the learner to say aloud right now (omit it when you are not asking them to speak).",
     "Do not wrap the JSON in markdown code fences.",
   ].join("\n");
 }
@@ -86,6 +93,10 @@ async function callLLM(
     english: parsed.english ?? "",
     notes: parsed.notes,
     vocab: (parsed.vocab ?? []).map(withPinyin),
+    expecting:
+      parsed.expecting && parsed.expecting.hanzi
+        ? withPinyin(parsed.expecting)
+        : undefined,
   };
 }
 
@@ -105,13 +116,14 @@ function mockReply(
     const praise = kid ? "太棒了！" : "很好！";
     const praiseEn = kid ? "Awesome!" : "Very good!";
     return {
-      hanzi: `${praise} ${item.hanzi}`,
-      pinyin: `${toPinyin(praise)} ${item.pinyin}`,
-      english: `${praiseEn} Let's learn "${item.english}".`,
+      hanzi: `${praise} 请跟我说：${item.hanzi}`,
+      pinyin: `${toPinyin(praise)} qǐng gēn wǒ shuō: ${item.pinyin}`,
+      english: `${praiseEn} Now say it after me: "${item.english}".`,
       notes: kid
-        ? `Try saying it out loud! Tap the 🔊 to hear "${item.english}".`
-        : `"${item.hanzi}" means "${item.english}". Listen with 🔊 and repeat to practice the tones.`,
+        ? `Tap 🎤 and say "${item.hanzi}" out loud!`
+        : `"${item.hanzi}" means "${item.english}". Tap 🎤 and repeat it to practice.`,
       vocab: [item],
+      expecting: item,
     };
   }
 

@@ -96,7 +96,7 @@ export function ChatTutor() {
     const next: DisplayMsg[] = [...messages, { role: "user", content: text }];
     setMessages(next);
     setInput("");
-    void send(next);
+    void send(next, undefined, { autoPlay: mode === "lesson" });
   }
 
   async function toggleMic() {
@@ -168,7 +168,7 @@ export function ChatTutor() {
       { role: "user", content: `Let's start the "${lesson.title}" lesson. Teach me the first word.` },
     ];
     setMessages(kickoff);
-    void send(kickoff, { mode: "lesson", lessonId: id });
+    void send(kickoff, { mode: "lesson", lessonId: id }, { autoPlay: true });
   }
 
   function startFree() {
@@ -284,6 +284,9 @@ export function ChatTutor() {
               reply={m.reply}
               kid={kid}
               autoPlay={Boolean(m.autoPlay)}
+              expectingActive={i === messages.length - 1 && !loading && !transcribing}
+              recording={recording}
+              onSpeak={toggleMic}
             />
           ),
         )}
