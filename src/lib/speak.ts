@@ -1,70 +1,50 @@
 "use client";
 
 /**
- * Speak Mandarin text using the browser's SpeechSynthesis API (zh-CN).
- * No API key required. Designed to be swapped for server-side TTS
- * (e.g. OpenAI / Azure) later by replacing this implementation.
+ * Speak Mandarin text. Primary path is server-side TTS (OpenAI) played as an
+ * MP3, so audio is identical across devices and does not depend on the
+ * browser's installed voices. Falls back to the browser SpeechSynthesis API
+ * when the TTS endpoint is unavailable (e.g. offline / no API key).
  */
 
-function pickZhVoice(
-  voices: SpeechSynthesisVoice[],
-): SpeechSynthesisVoice | undefined {
-  return (
-    voices.find((v) => v.lang.toLowerCase() === "zh-cn") ??
-    voices.find((v) => v.lang.toLowerCase().startsWith("zh"))
-  );
-}
+let currentAudio: HTMLAudioElement | null = null;
 
-function utterance(text: string, voices: SpeechSynthesisVoice[]) {
+function speakBrowser(text: string): void {
+  if (!("speechSynthesis" in window)) return;
+  const synth = window.speechSynthesis;
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = "zh-CN";
   utter.rate = 0.85;
-  const zh = pickZhVoice(voices);
+  const zh = synth
+    .getVoices()
+    .find((v) => v.lang.toLowerCase().startsWith("zh"));
   if (zh) utter.voice = zh;
-  return utter;
+  if (synth.speaking || synth.pending) synth.cancel();
+  synth.speak(utter);
 }
 
 export function speak(text: string): void {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-  const synth = window.speechSynthesis;
+  if (typeof window === "undefined") return;
 
-  const play = (voices: SpeechSynthesisVoice[]) => {
-    const utter = utterance(text, voices);
-    const start = () => {
-      // Chrome can leave the engine paused after a prior utterance.
-      synth.resume();
-      synth.speak(utter);
-    };
-    // If something is already playing, cancel it and wait a tick before
-    // speaking again — Chrome drops an utterance queued in the same frame
-    // as cancel(), which is why a rapid second press goes silent.
-    if (synth.speaking || synth.pending) {
-      synth.cancel();
-      window.setTimeout(start, 120);
-    } else {
-      start();
-    }
-  };
-
-  const voices = synth.getVoices();
-  if (voices.length) {
-    play(voices);
-    return;
+  // Stop whatever is currently playing so repeated presses always restart.
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
   }
+  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
 
-  // Voices load asynchronously; on the first call getVoices() is often empty
-  // until the `voiceschanged` event fires. Wait for it, with a timeout fallback.
-  let done = false;
-  const run = () => {
-    if (done) return;
-    done = true;
-    synth.removeEventListener("voiceschanged", run);
-    play(synth.getVoices());
-  };
-  synth.addEventListener("voiceschanged", run);
-  window.setTimeout(run, 1000);
+  // Kick off play() synchronously inside the click handler so the browser
+  // treats it as user-initiated (avoids autoplay blocking). The src points at
+  // the server TTS endpoint, which streams an MP3.
+  const audio = new Audio(`/api/tts?text=${encodeURIComponent(text)}`);
+  currentAudio = audio;
+  audio.play().catch(() => {
+    // TTS endpoint failed or returned a non-audio response (offline mode).
+    if (currentAudio === audio) currentAudio = null;
+    speakBrowser(text);
+  });
 }
 
 export function canSpeak(): boolean {
-  return typeof window !== "undefined" && "speechSynthesis" in window;
+  return typeof window !== "undefined";
 }
