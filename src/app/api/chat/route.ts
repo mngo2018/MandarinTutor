@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { messages, audience, mode, lessonId } = body;
+  const { messages, audience, mode, style, lessonId } = body;
   if (!Array.isArray(messages)) {
     return NextResponse.json({ error: "`messages` is required" }, { status: 400 });
   }
@@ -20,6 +20,7 @@ export async function POST(request: Request) {
     audience === "kids" ? "kids" : "adults",
     mode === "lesson" ? "lesson" : "free",
     lessonId,
+    style === "bilingual" ? "bilingual" : "immersion",
   );
 
   return NextResponse.json({ reply, mock });

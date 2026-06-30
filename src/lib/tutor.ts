@@ -5,6 +5,7 @@ import type {
   ChatMessage,
   Lesson,
   Mode,
+  TeachingStyle,
   TutorReply,
   VocabItem,
 } from "./types";
@@ -32,7 +33,12 @@ function buildSystemPrompt(
   audience: Audience,
   mode: Mode,
   lesson: Lesson | undefined,
+  style: TeachingStyle,
 ): string {
+  const styleGuide =
+    style === "bilingual"
+      ? "TEACHING STYLE — BILINGUAL: Coach like a bilingual teacher. Give your instructions and explanations mainly in English, and weave in the Mandarin words/phrases you want the learner to hear and repeat. Set `speech` to a natural spoken line that mixes your English guidance with the Mandarin phrase, e.g. \"Let's learn 'hello'. In Chinese it's 你好. Now you try: 你好.\" Keep English generous so a beginner always follows along."
+      : "TEACHING STYLE — IMMERSION: Teach mostly in Mandarin, using simple Chinese the learner can follow, with only a tiny English gloss when truly needed. Set `speech` to the Mandarin you want spoken aloud (mostly Chinese).";
   const tone =
     audience === "kids"
       ? "You are teaching a young child. Be warm, playful, and very encouraging. Use short, simple sentences and lots of praise. Keep new vocabulary to 1-2 words at a time."
@@ -54,11 +60,13 @@ function buildSystemPrompt(
   return [
     "You are a friendly, proactive Mandarin Chinese tutor who leads the session.",
     tone,
+    styleGuide,
     focus,
     "Always reply with simplified Chinese plus pinyin and an English translation.",
     "Respond ONLY with a JSON object matching this TypeScript type:",
-    "{ hanzi: string; pinyin: string; english: string; notes?: string; vocab: { hanzi: string; pinyin: string; english: string }[]; expecting?: { hanzi: string; pinyin: string; english: string } }",
-    "`hanzi` is your spoken reply in Chinese (include your instruction to the learner). `pinyin` is its pinyin with tone marks. `english` is the translation.",
+    "{ hanzi: string; pinyin: string; english: string; speech?: string; notes?: string; vocab: { hanzi: string; pinyin: string; english: string }[]; expecting?: { hanzi: string; pinyin: string; english: string } }",
+    "`hanzi` is the Chinese sentence(s) of your reply. `pinyin` is its pinyin with tone marks. `english` is the translation.",
+    "`speech` is the exact line to read aloud to the learner, following the TEACHING STYLE above (bilingual = mixed English+Mandarin; immersion = mostly Mandarin).",
     "`notes` is a short tip or encouragement in English. `vocab` lists the key words from your reply worth reviewing.",
     "`expecting` is the single phrase you are asking the learner to say aloud right now (omit it when you are not asking them to speak).",
     "Do not wrap the JSON in markdown code fences.",
@@ -70,6 +78,7 @@ async function callLLM(
   audience: Audience,
   mode: Mode,
   lesson: Lesson | undefined,
+  style: TeachingStyle,
 ): Promise<TutorReply> {
   const { default: OpenAI } = await import("openai");
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -78,7 +87,7 @@ async function callLLM(
     model: MODEL,
     response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: buildSystemPrompt(audience, mode, lesson) },
+      { role: "system", content: buildSystemPrompt(audience, mode, lesson, style) },
       ...messages.map((m) => ({ role: m.role, content: m.content })),
     ],
   });
@@ -91,6 +100,7 @@ async function callLLM(
     hanzi,
     pinyin: parsed.pinyin?.trim() || toPinyin(hanzi),
     english: parsed.english ?? "",
+    speech: parsed.speech?.trim() || undefined,
     notes: parsed.notes,
     vocab: (parsed.vocab ?? []).map(withPinyin),
     expecting:
@@ -106,10 +116,12 @@ function mockReply(
   audience: Audience,
   mode: Mode,
   lesson: Lesson | undefined,
+  style: TeachingStyle,
 ): TutorReply {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   const turn = messages.filter((m) => m.role === "user").length;
   const kid = audience === "kids";
+  const bilingual = style === "bilingual";
 
   if (mode === "lesson" && lesson) {
     const item = lesson.vocab[(turn - 1 + lesson.vocab.length) % lesson.vocab.length];
@@ -119,6 +131,9 @@ function mockReply(
       hanzi: `${praise} 请跟我说：${item.hanzi}`,
       pinyin: `${toPinyin(praise)} qǐng gēn wǒ shuō: ${item.pinyin}`,
       english: `${praiseEn} Now say it after me: "${item.english}".`,
+      speech: bilingual
+        ? `${praiseEn} The word for "${item.english}" is ${item.hanzi}. Now you try: ${item.hanzi}.`
+        : `${praise} 请跟我说：${item.hanzi}`,
       notes: kid
         ? `Tap 🎤 and say "${item.hanzi}" out loud!`
         : `"${item.hanzi}" means "${item.english}". Tap 🎤 and repeat it to practice.`,
@@ -158,14 +173,18 @@ export async function generateReply(
   audience: Audience,
   mode: Mode,
   lessonId: string | undefined,
+  style: TeachingStyle,
 ): Promise<{ reply: TutorReply; mock: boolean }> {
   const lesson = getLesson(lessonId);
   if (hasLLM()) {
     try {
-      return { reply: await callLLM(messages, audience, mode, lesson), mock: false };
+      return {
+        reply: await callLLM(messages, audience, mode, lesson, style),
+        mock: false,
+      };
     } catch (err) {
       console.error("LLM call failed, falling back to offline tutor:", err);
     }
   }
-  return { reply: mockReply(messages, audience, mode, lesson), mock: true };
+  return { reply: mockReply(messages, audience, mode, lesson, style), mock: true };
 }

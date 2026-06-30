@@ -7,6 +7,7 @@ import type {
   ChatMessage,
   Mode,
   Pronunciation,
+  TeachingStyle,
   TutorReply,
   VocabItem,
 } from "@/lib/types";
@@ -20,6 +21,7 @@ type DisplayMsg =
 
 export function ChatTutor() {
   const [audience, setAudience] = useState<Audience>("adults");
+  const [style, setStyle] = useState<TeachingStyle>("bilingual");
   const [mode, setMode] = useState<Mode>("lesson");
   const [lessonId, setLessonId] = useState<string | undefined>(undefined);
   const [messages, setMessages] = useState<DisplayMsg[]>([]);
@@ -64,6 +66,7 @@ export function ChatTutor() {
         body: JSON.stringify({
           messages: apiMessages,
           audience,
+          style,
           mode: ctx?.mode ?? mode,
           lessonId: ctx?.lessonId !== undefined ? ctx.lessonId : lessonId,
         }),
@@ -248,6 +251,14 @@ export function ChatTutor() {
               options={[
                 { value: "kids", label: "🧒 Kids" },
                 { value: "adults", label: "🧑 Adults" },
+              ]}
+            />
+            <Toggle
+              value={style}
+              onChange={(v) => setStyle(v as TeachingStyle)}
+              options={[
+                { value: "immersion", label: "🇨🇳 Immersion" },
+                { value: "bilingual", label: "🌐 Bilingual" },
               ]}
             />
             <button

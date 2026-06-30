@@ -1,5 +1,7 @@
 export type Audience = "kids" | "adults";
 export type Mode = "lesson" | "free";
+/** How much English the tutor uses while teaching. */
+export type TeachingStyle = "immersion" | "bilingual";
 
 export type Role = "user" | "assistant";
 
@@ -23,6 +25,11 @@ export interface TutorReply {
   pinyin: string;
   /** English translation of `hanzi`. */
   english: string;
+  /**
+   * The line the tutor should say aloud. In bilingual mode this mixes English
+   * guidance with the Mandarin phrase; defaults to `hanzi` when omitted.
+   */
+  speech?: string;
   /** Short teaching note / encouragement in English. */
   notes?: string;
   /** Key vocabulary worth saving for review. */
@@ -62,6 +69,7 @@ export interface ChatRequest {
   messages: ChatMessage[];
   audience: Audience;
   mode: Mode;
+  style?: TeachingStyle;
   lessonId?: string;
 }
 

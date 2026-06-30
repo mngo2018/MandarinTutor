@@ -65,11 +65,12 @@ export function TutorMessage({
   onSpeak?: () => void;
 }) {
   const [saved, setSaved] = useState(false);
+  const spoken = reply.speech?.trim() || reply.hanzi;
 
   useEffect(() => {
-    if (autoPlay) speak(reply.hanzi);
-    else prefetchSpeech(reply.hanzi);
-  }, [reply.hanzi, autoPlay]);
+    if (autoPlay) speak(spoken);
+    else prefetchSpeech(spoken);
+  }, [spoken, autoPlay]);
 
   return (
     <div
@@ -87,11 +88,11 @@ export function TutorMessage({
           <p className="mt-1 text-base text-rose-600">{reply.pinyin}</p>
           <p className="mt-1 text-slate-600">{reply.english}</p>
         </div>
-        {canSpeak() && reply.hanzi && (
+        {canSpeak() && spoken && (
           <button
             type="button"
             aria-label="Play audio"
-            onClick={() => speak(reply.hanzi)}
+            onClick={() => speak(spoken)}
             className="shrink-0 rounded-full bg-rose-100 p-2 text-xl transition hover:bg-rose-200"
           >
             🔊
