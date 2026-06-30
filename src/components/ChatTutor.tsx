@@ -19,6 +19,8 @@ type DisplayMsg =
   | { role: "user"; content: string; pron?: Pronunciation }
   | { role: "assistant"; reply: TutorReply; autoPlay?: boolean };
 
+const nowMs = (): number => Date.now();
+
 export function ChatTutor() {
   const [audience, setAudience] = useState<Audience>("adults");
   const [style, setStyle] = useState<TeachingStyle>("bilingual");
@@ -38,6 +40,11 @@ export function ChatTutor() {
   const messagesRef = useRef<DisplayMsg[]>(messages);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heldRef = useRef(false);
+  const pressStartRef = useRef(0);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -46,6 +53,14 @@ export function ChatTutor() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, loading]);
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      if (maxTimerRef.current !== null) clearTimeout(maxTimerRef.current);
+      void audioCtxRef.current?.close();
+    };
+  }, []);
 
   async function send(
     history: DisplayMsg[],
@@ -105,11 +120,66 @@ export function ChatTutor() {
     void send(next, undefined, { autoPlay: mode === "lesson" });
   }
 
-  async function toggleMic() {
-    if (recording) {
-      recorderRef.current?.stop();
-      return;
+  function cleanupAudioMonitor() {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
     }
+    if (maxTimerRef.current !== null) {
+      clearTimeout(maxTimerRef.current);
+      maxTimerRef.current = null;
+    }
+    if (audioCtxRef.current) {
+      void audioCtxRef.current.close();
+      audioCtxRef.current = null;
+    }
+  }
+
+  // Auto-stop on silence: watch the mic level and stop ~1.5s after the speaker
+  // finishes (only once they've actually started talking).
+  function monitorSilence(stream: MediaStream) {
+    const Ctx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext })
+        .webkitAudioContext;
+    const ctx = new Ctx();
+    audioCtxRef.current = ctx;
+    const source = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 512;
+    source.connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+
+    const SILENCE_MS = 1500;
+    const THRESHOLD = 0.02; // RMS; speech is well above ambient noise
+    let lastLoud = nowMs();
+    let spoke = false;
+
+    const tick = () => {
+      if (!audioCtxRef.current) return;
+      analyser.getByteTimeDomainData(data);
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) {
+        const v = (data[i] - 128) / 128;
+        sum += v * v;
+      }
+      const rms = Math.sqrt(sum / data.length);
+      const now = nowMs();
+      if (rms > THRESHOLD) {
+        lastLoud = now;
+        spoke = true;
+      }
+      if (spoke && now - lastLoud > SILENCE_MS) {
+        stopRecording();
+        return;
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  }
+
+  async function startRecording() {
+    if (recording || transcribing || loading) return;
     setMicError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -119,6 +189,7 @@ export function ChatTutor() {
         if (e.data.size) chunksRef.current.push(e.data);
       };
       recorder.onstop = () => {
+        cleanupAudioMonitor();
         stream.getTracks().forEach((t) => t.stop());
         setRecording(false);
         const blob = new Blob(chunksRef.current, {
@@ -129,9 +200,37 @@ export function ChatTutor() {
       recorderRef.current = recorder;
       recorder.start();
       setRecording(true);
+      monitorSilence(stream);
+      // Safety cap so a forgotten recording can't run forever.
+      maxTimerRef.current = setTimeout(() => stopRecording(), 20000);
     } catch {
       setMicError("Microphone access was blocked. Allow it in your browser to speak.");
     }
+  }
+
+  function stopRecording() {
+    const recorder = recorderRef.current;
+    if (recorder && recorder.state !== "inactive") recorder.stop();
+  }
+
+  // Press-and-hold = push-to-talk (release to send). Quick tap = hands-free
+  // (record until you stop speaking). A second tap stops an active recording.
+  function micDown() {
+    if (transcribing || loading) return;
+    if (recording) {
+      stopRecording();
+      return;
+    }
+    heldRef.current = true;
+    pressStartRef.current = nowMs();
+    void startRecording();
+  }
+
+  function micUp() {
+    if (!heldRef.current) return;
+    heldRef.current = false;
+    const held = nowMs() - pressStartRef.current;
+    if (held >= 400) stopRecording();
   }
 
   function activeTarget(): VocabItem | undefined {
@@ -338,7 +437,8 @@ export function ChatTutor() {
               autoPlay={Boolean(m.autoPlay)}
               expectingActive={i === messages.length - 1 && !loading && !transcribing}
               recording={recording}
-              onSpeak={toggleMic}
+              onMicDown={micDown}
+              onMicUp={micUp}
             />
           ),
         )}
@@ -367,11 +467,15 @@ export function ChatTutor() {
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={toggleMic}
+              onPointerDown={micDown}
+              onPointerUp={micUp}
+              onPointerLeave={micUp}
+              onPointerCancel={micUp}
+              onContextMenu={(e) => e.preventDefault()}
               disabled={transcribing || loading}
-              aria-label={recording ? "Stop recording" : "Speak"}
-              title={recording ? "Stop recording" : "Speak Mandarin"}
-              className={`shrink-0 rounded-full px-4 py-2 text-lg font-medium transition disabled:opacity-40 ${
+              aria-label={recording ? "Stop recording" : "Hold to talk"}
+              title={recording ? "Release / tap to stop" : "Hold to talk, or tap to speak"}
+              className={`shrink-0 touch-none select-none rounded-full px-4 py-2 text-lg font-medium transition disabled:opacity-40 ${
                 recording
                   ? "animate-pulse bg-red-600 text-white"
                   : "bg-slate-100 text-slate-700 hover:bg-slate-200"
@@ -384,12 +488,12 @@ export function ChatTutor() {
               onChange={(e) => setInput(e.target.value)}
               placeholder={
                 recording
-                  ? "Listening… tap ⏹ when done"
+                  ? "Listening… I'll stop when you pause"
                   : transcribing
                     ? "Transcribing…"
                     : kid
-                      ? "Type or tap 🎤 to speak! 你好"
-                      : "Type, or tap 🎤 to speak…"
+                      ? "Type, or hold 🎤 to talk! 你好"
+                      : "Type, or hold 🎤 to talk (auto-stops)"
               }
               disabled={recording || transcribing}
               className="flex-1 rounded-full border border-slate-300 px-4 py-2 outline-none focus:border-rose-400 disabled:bg-slate-50"

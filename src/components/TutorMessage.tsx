@@ -55,14 +55,16 @@ export function TutorMessage({
   autoPlay = false,
   expectingActive = false,
   recording = false,
-  onSpeak,
+  onMicDown,
+  onMicUp,
 }: {
   reply: TutorReply;
   kid: boolean;
   autoPlay?: boolean;
   expectingActive?: boolean;
   recording?: boolean;
-  onSpeak?: () => void;
+  onMicDown?: () => void;
+  onMicUp?: () => void;
 }) {
   const [saved, setSaved] = useState(false);
   const spoken = reply.speech?.trim() || reply.hanzi;
@@ -133,15 +135,19 @@ export function TutorMessage({
                   🔊
                 </button>
               )}
-              {expectingActive && onSpeak && (
+              {expectingActive && onMicDown && (
                 <button
                   type="button"
-                  onClick={onSpeak}
-                  className={`rounded-full px-3 py-1.5 text-sm font-medium text-white transition ${
+                  onPointerDown={onMicDown}
+                  onPointerUp={onMicUp}
+                  onPointerLeave={onMicUp}
+                  onPointerCancel={onMicUp}
+                  onContextMenu={(e) => e.preventDefault()}
+                  className={`touch-none select-none rounded-full px-3 py-1.5 text-sm font-medium text-white transition ${
                     recording ? "animate-pulse bg-red-600" : "bg-rose-600 hover:bg-rose-700"
                   }`}
                 >
-                  {recording ? "⏹ Stop" : "🎤 Say it"}
+                  {recording ? "⏹ Stop" : "🎤 Hold to talk"}
                 </button>
               )}
             </div>
