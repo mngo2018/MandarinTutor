@@ -79,10 +79,35 @@ export interface ChatResponse {
   mock: boolean;
 }
 
+/** Which learner track a lesson belongs to. */
+export type Track = "adults" | "kids";
+
+/** Kind of lesson experience. */
+export type LessonKind = "vocab" | "scenario";
+
+/** Roleplay setup for scenario lessons. */
+export interface Scenario {
+  /** The character the tutor plays, e.g. "a street food vendor". */
+  role: string;
+  /** Where it happens, shown to the learner to set the scene. */
+  setting: string;
+  /** What the learner is trying to accomplish. */
+  goal: string;
+  /** One-line setup shown in the UI before the roleplay begins. */
+  intro: string;
+}
+
 export interface Lesson {
   id: string;
   title: string;
   emoji: string;
   description: string;
+  /** Track this lesson is designed for. Defaults to both if omitted. */
+  track?: Track;
+  /** Experience type; defaults to "vocab". */
+  kind?: LessonKind;
+  /** Roleplay config when `kind === "scenario"`. */
+  scenario?: Scenario;
+  /** Target phrases. For scenarios these are the lines to practice/use. */
   vocab: VocabItem[];
 }

@@ -71,6 +71,142 @@ export const LESSONS: Lesson[] = [
       { hanzi: "黑色", pinyin: "hēi sè", english: "black" },
     ],
   },
+
+  // ── Adults: survival roleplay scenarios ─────────────────────────────
+  {
+    id: "order-food",
+    title: "Order Food",
+    emoji: "🍜",
+    description: "Roleplay: order a meal at a restaurant.",
+    track: "adults",
+    kind: "scenario",
+    scenario: {
+      role: "a friendly restaurant waiter",
+      setting: "a small noodle restaurant in Beijing",
+      goal: "order a bowl of noodles and pay for it",
+      intro:
+        "You walk into a noodle shop. The waiter greets you — order your meal and pay, all in Mandarin.",
+    },
+    vocab: [
+      { hanzi: "我要这个", pinyin: "wǒ yào zhè ge", english: "I want this one" },
+      { hanzi: "一碗面条", pinyin: "yì wǎn miàn tiáo", english: "a bowl of noodles" },
+      { hanzi: "多少钱？", pinyin: "duō shao qián?", english: "how much?" },
+      { hanzi: "买单", pinyin: "mǎi dān", english: "the bill, please" },
+      { hanzi: "谢谢", pinyin: "xiè xie", english: "thank you" },
+    ],
+  },
+  {
+    id: "market-bargain",
+    title: "Bargain at the Market",
+    emoji: "🛍️",
+    description: "Roleplay: haggle for a better price.",
+    track: "adults",
+    kind: "scenario",
+    scenario: {
+      role: "a lively souvenir street vendor who loves to haggle",
+      setting: "a busy outdoor market stall",
+      goal: "buy a souvenir for a lower price than first offered",
+      intro:
+        "You spot a souvenir you like. The vendor names a high price — bargain them down!",
+    },
+    vocab: [
+      { hanzi: "这个多少钱？", pinyin: "zhè ge duō shao qián?", english: "how much is this?" },
+      { hanzi: "太贵了", pinyin: "tài guì le", english: "too expensive" },
+      { hanzi: "便宜一点", pinyin: "pián yi yì diǎn", english: "a bit cheaper" },
+      { hanzi: "可以吗？", pinyin: "kě yǐ ma?", english: "is that okay?" },
+      { hanzi: "我买了", pinyin: "wǒ mǎi le", english: "I'll buy it" },
+    ],
+  },
+  {
+    id: "restroom",
+    title: "Find the Restroom",
+    emoji: "🚻",
+    description: "Roleplay: ask where the restroom is.",
+    track: "adults",
+    kind: "scenario",
+    scenario: {
+      role: "a helpful passerby on the street",
+      setting: "a shopping street where you urgently need a restroom",
+      goal: "politely ask for and understand directions to the restroom",
+      intro:
+        "You need a restroom, fast. Stop a passerby and ask politely in Mandarin.",
+    },
+    vocab: [
+      { hanzi: "请问", pinyin: "qǐng wèn", english: "excuse me (may I ask)" },
+      { hanzi: "洗手间在哪里？", pinyin: "xǐ shǒu jiān zài nǎ lǐ?", english: "where is the restroom?" },
+      { hanzi: "在哪里？", pinyin: "zài nǎ lǐ?", english: "where is it?" },
+      { hanzi: "我明白了", pinyin: "wǒ míng bai le", english: "I understand" },
+      { hanzi: "谢谢你", pinyin: "xiè xie nǐ", english: "thank you" },
+    ],
+  },
+  {
+    id: "didi-taxi",
+    title: "Take a Didi",
+    emoji: "🚕",
+    description: "Roleplay: tell a driver where to go.",
+    track: "adults",
+    kind: "scenario",
+    scenario: {
+      role: "a Didi (ride-hailing) driver",
+      setting: "the back seat of a Didi car",
+      goal: "tell the driver your destination and confirm the fare",
+      intro:
+        "Your Didi arrives. Greet the driver, give your destination, and confirm the fare.",
+    },
+    vocab: [
+      { hanzi: "你好，师傅", pinyin: "nǐ hǎo, shī fu", english: "hello, driver" },
+      { hanzi: "我要去机场", pinyin: "wǒ yào qù jī chǎng", english: "I want to go to the airport" },
+      { hanzi: "多长时间？", pinyin: "duō cháng shí jiān?", english: "how long will it take?" },
+      { hanzi: "到了", pinyin: "dào le", english: "we've arrived" },
+      { hanzi: "多少钱？", pinyin: "duō shao qián?", english: "how much?" },
+    ],
+  },
+
+  // ── Kids: story-quest roleplay scenarios ────────────────────────────
+  {
+    id: "panda-lost-ball",
+    title: "Pim's Lost Ball",
+    emoji: "🐼",
+    description: "Quest: help Pim the Panda find his ball!",
+    track: "kids",
+    kind: "scenario",
+    scenario: {
+      role: "Pim, a cute baby panda who lost his red ball and needs the child's help",
+      setting: "a sunny bamboo forest",
+      goal: "help Pim find his red ball by talking to forest friends",
+      intro:
+        "Pim the Panda lost his favorite red ball! 🐼 Help him find it using your Mandarin.",
+    },
+    vocab: [
+      { hanzi: "你好", pinyin: "nǐ hǎo", english: "hello" },
+      { hanzi: "你看！", pinyin: "nǐ kàn!", english: "look!" },
+      { hanzi: "球在哪里？", pinyin: "qiú zài nǎ lǐ?", english: "where is the ball?" },
+      { hanzi: "我要球", pinyin: "wǒ yào qiú", english: "I want the ball" },
+      { hanzi: "谢谢", pinyin: "xiè xie", english: "thank you" },
+    ],
+  },
+  {
+    id: "panda-snack",
+    title: "Pim's Snack Time",
+    emoji: "🍎",
+    description: "Quest: share a snack with Pim!",
+    track: "kids",
+    kind: "scenario",
+    scenario: {
+      role: "Pim, a hungry baby panda who wants to share snacks with the child",
+      setting: "a picnic blanket under a big tree",
+      goal: "ask for snacks and share them with Pim",
+      intro:
+        "It's snack time with Pim! 🍎 Ask for snacks and share them, all in Mandarin.",
+    },
+    vocab: [
+      { hanzi: "我要苹果", pinyin: "wǒ yào píng guǒ", english: "I want an apple" },
+      { hanzi: "你要不要？", pinyin: "nǐ yào bu yào?", english: "do you want some?" },
+      { hanzi: "给你", pinyin: "gěi nǐ", english: "here you go" },
+      { hanzi: "好吃！", pinyin: "hǎo chī!", english: "delicious!" },
+      { hanzi: "谢谢", pinyin: "xiè xie", english: "thank you" },
+    ],
+  },
 ];
 
 export function getLesson(id: string | undefined): Lesson | undefined {

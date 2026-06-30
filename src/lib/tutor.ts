@@ -44,18 +44,35 @@ function buildSystemPrompt(
       ? "You are teaching a young child. Be warm, playful, and very encouraging. Use short, simple sentences and lots of praise. Keep new vocabulary to 1-2 words at a time."
       : "You are teaching an adult beginner. Be friendly, clear, and concise. You can explain grammar briefly when useful.";
 
-  const focus =
-    mode === "lesson" && lesson
-      ? [
-          `You are leading a guided lesson titled "${lesson.title}". Take charge and drive it step by step.`,
-          `Lesson vocabulary (teach these in order): ${lesson.vocab
-            .map((v) => `${v.hanzi} (${v.pinyin}) = ${v.english}`)
-            .join("; ")}.`,
-          "Teach ONE item per turn. For each item: briefly introduce it (meaning + when to use it), then ask the learner to say it out loud, and set the `expecting` field to exactly that item so the app can prompt them to speak.",
-          "On the learner's next turn they will send a transcription of what they said. Evaluate it: if it matches the expected phrase, praise them and move on to the NEXT item (introduce it and set `expecting` to the new item). If it is wrong or missing, gently correct, model it again, and set `expecting` to the SAME item to retry.",
-          "Keep each turn short — one item at a time. After all items have been practiced, give a short recap and a sentence of encouragement, and do not set `expecting`.",
-        ].join(" ")
-      : "This is free conversation. Keep Chinese at a beginner level and gently correct mistakes. Only set `expecting` if you explicitly invite the learner to repeat a specific phrase.";
+  const isScenario = mode === "lesson" && lesson?.kind === "scenario";
+
+  let focus: string;
+  if (isScenario && lesson?.scenario) {
+    const s = lesson.scenario;
+    focus = [
+      `ROLEPLAY SCENARIO — "${lesson.title}". You are role-playing as ${s.role}, set in ${s.setting}.`,
+      `The learner's goal: ${s.goal}. Stay IN CHARACTER the whole time and drive the scene forward toward this goal.`,
+      `Useful phrases the learner should practice (weave them in naturally; don't just list them): ${lesson.vocab
+        .map((v) => `${v.hanzi} (${v.pinyin}) = ${v.english}`)
+        .join("; ")}.`,
+      "Each turn: respond in character to what the learner said, then prompt them for the next line. When you want them to say a specific phrase, set `expecting` to exactly that phrase so the app can cue them to speak.",
+      "CONSEQUENCE-BASED FEEDBACK: react naturally and a little playfully to mistakes — if they say the wrong thing, have your character respond to what they actually said (e.g. bring the wrong dish, misunderstand the destination) so the mistake is memorable, then nudge them toward the right phrase and set `expecting` to retry it.",
+      "Keep each turn short and lively. When the goal is achieved, break character briefly to celebrate and recap what they accomplished, and do not set `expecting`.",
+    ].join(" ");
+  } else if (mode === "lesson" && lesson) {
+    focus = [
+      `You are leading a guided lesson titled "${lesson.title}". Take charge and drive it step by step.`,
+      `Lesson vocabulary (teach these in order): ${lesson.vocab
+        .map((v) => `${v.hanzi} (${v.pinyin}) = ${v.english}`)
+        .join("; ")}.`,
+      "Teach ONE item per turn. For each item: briefly introduce it (meaning + when to use it), then ask the learner to say it out loud, and set the `expecting` field to exactly that item so the app can prompt them to speak.",
+      "On the learner's next turn they will send a transcription of what they said. Evaluate it: if it matches the expected phrase, praise them and move on to the NEXT item (introduce it and set `expecting` to the new item). If it is wrong or missing, gently correct, model it again, and set `expecting` to the SAME item to retry.",
+      "Keep each turn short — one item at a time. After all items have been practiced, give a short recap and a sentence of encouragement, and do not set `expecting`.",
+    ].join(" ");
+  } else {
+    focus =
+      "This is free conversation. Keep Chinese at a beginner level and gently correct mistakes. Only set `expecting` if you explicitly invite the learner to repeat a specific phrase.";
+  }
 
   return [
     "You are a friendly, proactive Mandarin Chinese tutor who leads the session.",

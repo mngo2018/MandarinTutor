@@ -42,39 +42,32 @@ function computeLessonProgress(
 ): LessonProgress {
   const vocab = lesson.vocab;
   const total = vocab.length;
-  const idxOf = (h: string) => vocab.findIndex((v) => v.hanzi === h);
+  const vocabSet = new Set(vocab.map((v) => v.hanzi));
 
   const assistant = messages.filter(
     (m): m is Extract<DisplayMsg, { role: "assistant" }> =>
       m.role === "assistant",
   );
 
-  let maxIdx = -1;
-  for (const m of assistant) {
-    const e = m.reply.expecting?.hanzi;
-    if (e) {
-      const i = idxOf(e);
-      if (i > maxIdx) maxIdx = i;
-    }
-  }
-
   const last = assistant[assistant.length - 1];
   const cur = last?.reply.expecting?.hanzi;
-  const curIdx = cur ? idxOf(cur) : -1;
 
-  let done: number;
-  let complete = false;
-  if (curIdx >= 0) {
-    done = curIdx;
-  } else if (maxIdx >= 0) {
-    done = total;
-    complete = true;
-  } else {
-    done = 0;
+  // Vocab phrases the tutor has cued at some point. Scenarios may also cue
+  // custom phrases not in the list — those simply don't count toward the dots.
+  const asked = new Set<string>();
+  for (const m of assistant) {
+    const e = m.reply.expecting?.hanzi;
+    if (e && vocabSet.has(e)) asked.add(e);
   }
 
-  const doneSet = new Set<string>();
-  for (let i = 0; i < done && i < total; i++) doneSet.add(vocab[i].hanzi);
+  // Complete only when the tutor has stopped asking for anything (recap / goal
+  // reached) — never just because the current cue isn't a listed vocab item.
+  const complete = assistant.length > 0 && !cur;
+
+  const doneSet = complete
+    ? new Set(vocabSet)
+    : new Set([...asked].filter((h) => h !== cur));
+  const done = complete ? total : doneSet.size;
 
   const masteredCount = Math.min(
     total,
@@ -373,9 +366,11 @@ export function ChatTutor() {
     if (!lesson) return;
     setMode("lesson");
     setLessonId(id);
-    const kickoff: DisplayMsg[] = [
-      { role: "user", content: `Let's start the "${lesson.title}" lesson. Teach me the first word.` },
-    ];
+    const content =
+      lesson.kind === "scenario"
+        ? `Let's start the "${lesson.title}" roleplay. Set the scene and begin in character — give me my first line to say.`
+        : `Let's start the "${lesson.title}" lesson. Teach me the first word.`;
+    const kickoff: DisplayMsg[] = [{ role: "user", content }];
     setMessages(kickoff);
     void send(kickoff, { mode: "lesson", lessonId: id }, { autoPlay: true });
   }
@@ -464,23 +459,21 @@ export function ChatTutor() {
         />
 
         {mode === "lesson" && (
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {LESSONS.map((l) => (
-              <button
-                key={l.id}
-                type="button"
-                onClick={() => startLesson(l.id)}
-                className={`rounded-xl border p-3 text-left transition hover:shadow ${
-                  lessonId === l.id
-                    ? "border-rose-400 bg-rose-50"
-                    : "border-slate-200 bg-white"
-                }`}
-              >
-                <div className="text-xl">{l.emoji}</div>
-                <div className="font-medium">{l.title}</div>
-                <div className="text-xs text-slate-500">{l.description}</div>
-              </button>
-            ))}
+          <div className="mt-3 space-y-3">
+            <LessonGrid
+              label="📚 Basics"
+              lessons={LESSONS.filter((l) => (l.kind ?? "vocab") === "vocab")}
+              lessonId={lessonId}
+              onPick={startLesson}
+            />
+            <LessonGrid
+              label={kid ? "🎒 Story quests" : "🗺️ Real-life scenarios"}
+              lessons={LESSONS.filter(
+                (l) => l.kind === "scenario" && l.track === audience,
+              )}
+              lessonId={lessonId}
+              onPick={startLesson}
+            />
           </div>
         )}
 
@@ -494,6 +487,14 @@ export function ChatTutor() {
                 {Math.min(progress.done, progress.total)} / {progress.total}
               </span>
             </div>
+            {currentLesson.scenario && (
+              <p className="mt-1.5 text-xs text-slate-500">
+                🎭 {currentLesson.scenario.intro}{" "}
+                <span className="text-slate-400">
+                  (Goal: {currentLesson.scenario.goal})
+                </span>
+              </p>
+            )}
             <div className="mt-2 flex gap-1.5">
               {currentLesson.vocab.map((v) => {
                 const done = progress.doneSet.has(v.hanzi);
@@ -515,7 +516,8 @@ export function ChatTutor() {
             </div>
             {progress.complete && (
               <div className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                🎉 Lesson complete! You practiced all {progress.total} phrases
+                🎉 {currentLesson.kind === "scenario" ? "Scenario" : "Lesson"}{" "}
+                complete! You practiced all {progress.total} phrases
                 {progress.masteredCount > 0 &&
                   ` and nailed ${progress.masteredCount} on pronunciation`}
                 . Pick another lesson above or open 📚 Review to keep them fresh.
@@ -623,6 +625,45 @@ export function ChatTutor() {
       </form>
 
       {reviewOpen && <ReviewPanel onClose={() => setReviewOpen(false)} />}
+    </div>
+  );
+}
+
+function LessonGrid({
+  label,
+  lessons,
+  lessonId,
+  onPick,
+}: {
+  label: string;
+  lessons: Lesson[];
+  lessonId: string | undefined;
+  onPick: (id: string) => void;
+}) {
+  if (lessons.length === 0) return null;
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {lessons.map((l) => (
+          <button
+            key={l.id}
+            type="button"
+            onClick={() => onPick(l.id)}
+            className={`rounded-xl border p-3 text-left transition hover:shadow ${
+              lessonId === l.id
+                ? "border-rose-400 bg-rose-50"
+                : "border-slate-200 bg-white"
+            }`}
+          >
+            <div className="text-xl">{l.emoji}</div>
+            <div className="font-medium">{l.title}</div>
+            <div className="text-xs text-slate-500">{l.description}</div>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

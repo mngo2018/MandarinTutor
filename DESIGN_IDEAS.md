@@ -115,8 +115,64 @@ same store.
 
 ---
 
+## 4. Content Engine — Two Tracks (Adults vs Kids)
+
+Split content into two tracks tuned to how each audience learns. Driven by the
+existing Kids/Adults toggle.
+
+### Adults — immediate high-utility
+- **Survival micro-lessons** (5-min): order food, ask for the restroom, take a
+  Didi, bargain at a market. *(SHIPPED — see "Real-life scenarios" below.)*
+- **Professional branching:** specialized vocab paths (tech sourcing, finance
+  negotiation, medical intake).
+- **Cultural nuance engine:** "hidden" rules — how to accept a business card, why
+  never to give a clock as a gift.
+- **Custom prompting:** paste your own email/meeting agenda → personalized vocab
+  list for that day.
+
+### Kids — immersion & play
+- **Story-driven progress:** an ongoing narrative where the child uses Mandarin to
+  help a character (Pim the Panda) solve mysteries / complete quests. *(SHIPPED —
+  two starter quests.)*
+- **Total Physical Response (TPR):** use camera/audio to detect actions
+  ("跳 tiào / jump", "摸鼻子 mō bízi / touch your nose").
+- **High-frequency spoken language:** prioritize functional words like
+  我要 (I want), 你看 (look) over static noun lists. *(Applied in the quests.)*
+
+---
+
+## 5. Engagement Mechanics — the "exciting" layer
+
+1. **Interactive roleplay & branching scenarios** *(SHIPPED — first version)*
+   - The AI plays a character (vendor, waiter, driver) with a goal to reach.
+   - **Consequence-based learning:** wrong word → the character reacts naturally
+     (brings water instead of fruit), making mistakes memorable + funny.
+2. **AI-driven dynamic content**
+   - Current events / Mandopop lyrics / viral clips → daily reading & listening.
+   - **Image-to-lesson:** snap a photo of a menu/object → instant mini-lesson
+     (needs a vision model, e.g. gpt-4o vision).
+3. **Gamified speech & tone**
+   - **Tone visualizer:** real-time pitch-tracking graphic comparing the learner's
+     contour to a native one (Web Audio pitch detection).
+   - **Voice-controlled "spells":** for kids, correct pronunciation casts spells /
+     defeats monsters / unlocks chests.
+
+---
+
+## Shipped so far (content)
+- **Two-track lesson picker** (Basics + track-specific) keyed off Kids/Adults.
+- **Adults — Real-life scenarios:** Order Food 🍜, Bargain at the Market 🛍️,
+  Find the Restroom 🚻, Take a Didi 🚕.
+- **Kids — Story quests:** Pim's Lost Ball 🐼, Pim's Snack Time 🍎.
+- **Roleplay engine** in `tutor.ts`: in-character, goal-driven, consequence-based
+  feedback, reuses voice-in + tone feedback + progress bar.
+
+---
+
 ## Status / Decisions
-- Step A: do "a little later" (per user).
-- Current focus: UX — character + fun + lesson content.
-- Next ship: TBD — decide between "juicy panda" (character/game feel) vs.
-  content depth first (dialogues, sentence-building, lesson path, more lessons).
+- Step A (local memory): do "a little later" (per user).
+- "Juicy panda" character/game-feel pass: deferred (still in section 1–2 above).
+- Current focus: **lesson content** — roleplay scenarios + two tracks (shipped).
+- Next content slices (pick order): tone pitch visualizer · image-to-lesson ·
+  custom-prompt vocab · camera TPR for kids · dynamic current-events content ·
+  cultural nuance engine · more scenarios + a difficulty ladder.
