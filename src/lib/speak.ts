@@ -45,6 +45,15 @@ export function speak(text: string): void {
   });
 }
 
+/**
+ * Warm the TTS cache for a phrase so a later press of 🔊 plays instantly.
+ * Safe to call on render; failures (offline / no key) are ignored.
+ */
+export function prefetchSpeech(text: string): void {
+  if (typeof window === "undefined" || !text) return;
+  void fetch(`/api/tts?text=${encodeURIComponent(text)}`).catch(() => {});
+}
+
 export function canSpeak(): boolean {
   return typeof window !== "undefined";
 }

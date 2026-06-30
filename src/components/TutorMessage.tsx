@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { speak, canSpeak } from "@/lib/speak";
+import { useEffect, useState } from "react";
+import { speak, canSpeak, prefetchSpeech } from "@/lib/speak";
 import { addVocab } from "@/lib/srs";
 import type { TutorReply } from "@/lib/types";
 
@@ -13,6 +13,10 @@ export function TutorMessage({
   kid: boolean;
 }) {
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    prefetchSpeech(reply.hanzi);
+  }, [reply.hanzi]);
 
   return (
     <div
