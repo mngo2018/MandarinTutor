@@ -6,13 +6,16 @@ import type {
   Audience,
   ChatMessage,
   Mode,
+  Pronunciation,
   TutorReply,
+  VocabItem,
 } from "@/lib/types";
-import { TutorMessage } from "./TutorMessage";
+import { blobToWav } from "@/lib/wav";
+import { TutorMessage, PronunciationCard } from "./TutorMessage";
 import { ReviewPanel } from "./ReviewPanel";
 
 type DisplayMsg =
-  | { role: "user"; content: string }
+  | { role: "user"; content: string; pron?: Pronunciation }
   | { role: "assistant"; reply: TutorReply; autoPlay?: boolean };
 
 export function ChatTutor() {
@@ -128,27 +131,66 @@ export function ChatTutor() {
     }
   }
 
+  function activeTarget(): VocabItem | undefined {
+    const msgs = messagesRef.current;
+    const last = msgs[msgs.length - 1];
+    return last && last.role === "assistant" ? last.reply.expecting : undefined;
+  }
+
+  async function transcribeOnly(blob: Blob): Promise<string> {
+    const ext = blob.type.includes("mp4")
+      ? "mp4"
+      : blob.type.includes("ogg")
+        ? "ogg"
+        : "webm";
+    const form = new FormData();
+    form.append("audio", blob, `speech.${ext}`);
+    const res = await fetch("/api/transcribe", { method: "POST", body: form });
+    if (!res.ok) return "";
+    const data = await res.json();
+    return (data.text ?? "").trim();
+  }
+
   async function transcribeAndSend(blob: Blob) {
     if (!blob.size || loading) return;
     setTranscribing(true);
     try {
-      const ext = blob.type.includes("mp4")
-        ? "mp4"
-        : blob.type.includes("ogg")
-          ? "ogg"
-          : "webm";
-      const form = new FormData();
-      form.append("audio", blob, `speech.${ext}`);
-      const res = await fetch("/api/transcribe", { method: "POST", body: form });
-      const data = await res.json();
-      const text = (data.text ?? "").trim();
-      if (!text) {
+      const target = activeTarget();
+      let transcript = "";
+      let pron: Pronunciation | undefined;
+
+      // In a guided lesson with a target phrase, analyze pronunciation/tones
+      // from the actual audio. Falls back to plain transcription on failure.
+      if (target) {
+        try {
+          const wav = await blobToWav(blob);
+          const form = new FormData();
+          form.append("audio", wav, "speech.wav");
+          form.append("hanzi", target.hanzi);
+          form.append("pinyin", target.pinyin);
+          form.append("english", target.english);
+          const res = await fetch("/api/pronunciation", {
+            method: "POST",
+            body: form,
+          });
+          if (res.ok) {
+            pron = (await res.json()) as Pronunciation;
+            transcript = (pron.transcript ?? "").trim();
+          }
+        } catch {
+          // fall through to plain transcription
+        }
+      }
+
+      if (!transcript) transcript = await transcribeOnly(blob);
+      if (!transcript) {
         setMicError("Didn't catch that — try speaking again.");
         return;
       }
+
       const next: DisplayMsg[] = [
         ...messagesRef.current,
-        { role: "user", content: text },
+        { role: "user", content: transcript, pron },
       ];
       setMessages(next);
       void send(next, undefined, { autoPlay: true });
@@ -271,12 +313,11 @@ export function ChatTutor() {
         )}
         {messages.map((m, i) =>
           m.role === "user" ? (
-            <div
-              key={i}
-              className="max-w-[85%] self-end rounded-2xl bg-rose-600 px-4 py-2 text-white"
-              style={{ marginLeft: "auto" }}
-            >
-              {m.content}
+            <div key={i} className="ml-auto flex max-w-[85%] flex-col items-end gap-1">
+              <div className="rounded-2xl bg-rose-600 px-4 py-2 text-white">
+                {m.content}
+              </div>
+              {m.pron && <PronunciationCard pron={m.pron} />}
             </div>
           ) : (
             <TutorMessage
