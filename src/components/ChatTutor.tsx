@@ -5,6 +5,7 @@ import { LESSONS } from "@/lib/lessons";
 import type {
   Audience,
   ChatMessage,
+  Lesson,
   Mode,
   Pronunciation,
   TeachingStyle,
@@ -20,6 +21,70 @@ type DisplayMsg =
   | { role: "assistant"; reply: TutorReply; autoPlay?: boolean };
 
 const nowMs = (): number => Date.now();
+
+interface LessonProgress {
+  done: number;
+  total: number;
+  currentHanzi?: string;
+  complete: boolean;
+  doneSet: Set<string>;
+  masteredCount: number;
+}
+
+/**
+ * Derive lesson progress from the conversation. The tutor introduces vocab in
+ * order and sets `expecting` to the phrase it currently wants spoken, so the
+ * position of the latest target tells us how far along the learner is.
+ */
+function computeLessonProgress(
+  lesson: Lesson,
+  messages: DisplayMsg[],
+): LessonProgress {
+  const vocab = lesson.vocab;
+  const total = vocab.length;
+  const idxOf = (h: string) => vocab.findIndex((v) => v.hanzi === h);
+
+  const assistant = messages.filter(
+    (m): m is Extract<DisplayMsg, { role: "assistant" }> =>
+      m.role === "assistant",
+  );
+
+  let maxIdx = -1;
+  for (const m of assistant) {
+    const e = m.reply.expecting?.hanzi;
+    if (e) {
+      const i = idxOf(e);
+      if (i > maxIdx) maxIdx = i;
+    }
+  }
+
+  const last = assistant[assistant.length - 1];
+  const cur = last?.reply.expecting?.hanzi;
+  const curIdx = cur ? idxOf(cur) : -1;
+
+  let done: number;
+  let complete = false;
+  if (curIdx >= 0) {
+    done = curIdx;
+  } else if (maxIdx >= 0) {
+    done = total;
+    complete = true;
+  } else {
+    done = 0;
+  }
+
+  const doneSet = new Set<string>();
+  for (let i = 0; i < done && i < total; i++) doneSet.add(vocab[i].hanzi);
+
+  const masteredCount = Math.min(
+    total,
+    messages.filter(
+      (m) => m.role === "user" && m.pron && m.pron.rating !== "needs_work",
+    ).length,
+  );
+
+  return { done, total, currentHanzi: cur, complete, doneSet, masteredCount };
+}
 
 export function ChatTutor() {
   const [audience, setAudience] = useState<Audience>("adults");
@@ -325,6 +390,14 @@ export function ChatTutor() {
     void send(kickoff, { mode: "free", lessonId: undefined });
   }
 
+  const currentLesson =
+    mode === "lesson" && lessonId
+      ? LESSONS.find((l) => l.id === lessonId)
+      : undefined;
+  const progress = currentLesson
+    ? computeLessonProgress(currentLesson, messages)
+    : null;
+
   return (
     <div
       className={`flex h-full flex-col ${
@@ -408,6 +481,46 @@ export function ChatTutor() {
                 <div className="text-xs text-slate-500">{l.description}</div>
               </button>
             ))}
+          </div>
+        )}
+
+        {currentLesson && progress && messages.length > 0 && (
+          <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium text-slate-700">
+                {currentLesson.emoji} {currentLesson.title}
+              </span>
+              <span className="text-slate-500">
+                {Math.min(progress.done, progress.total)} / {progress.total}
+              </span>
+            </div>
+            <div className="mt-2 flex gap-1.5">
+              {currentLesson.vocab.map((v) => {
+                const done = progress.doneSet.has(v.hanzi);
+                const current = !progress.complete && progress.currentHanzi === v.hanzi;
+                return (
+                  <span
+                    key={v.hanzi}
+                    title={`${v.hanzi} (${v.pinyin})`}
+                    className={`h-2 flex-1 rounded-full transition ${
+                      done
+                        ? "bg-emerald-500"
+                        : current
+                          ? "bg-rose-400"
+                          : "bg-slate-200"
+                    }`}
+                  />
+                );
+              })}
+            </div>
+            {progress.complete && (
+              <div className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                🎉 Lesson complete! You practiced all {progress.total} phrases
+                {progress.masteredCount > 0 &&
+                  ` and nailed ${progress.masteredCount} on pronunciation`}
+                . Pick another lesson above or open 📚 Review to keep them fresh.
+              </div>
+            )}
           </div>
         )}
       </div>
