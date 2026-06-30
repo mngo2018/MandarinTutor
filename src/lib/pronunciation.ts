@@ -34,6 +34,7 @@ export async function analyzePronunciation(
     "You are a Mandarin pronunciation coach. You will hear a learner attempt to say a target phrase.",
     "Judge their pronunciation by LISTENING to the audio — especially the tones of each syllable.",
     "Be encouraging but honest. Compare what you hear to the target's expected tones.",
+    "Always write Chinese in Simplified characters.",
     "Respond ONLY with a JSON object of this TypeScript type (no markdown fences):",
     '{ transcript: string; rating: "great" | "good" | "needs_work"; tones: { char: string; pinyin: string; ok: boolean; note?: string }[]; tip?: string }',
     "`transcript` is what you actually heard them say. `tones` must have one entry per syllable of the TARGET phrase, in order, with `ok` true when that syllable (including its tone) was acceptable. `note` is a brief reason only when ok is false. `tip` is one short, concrete improvement tip.",
